@@ -30,15 +30,17 @@ class CongestionStateMachine extends EventEmitter {
         const isClearNow = this.history.every(count => count < this.threshold);
 
         const now = Date.now();
-        const canTransition = (now - this.lastTransitionTime) >= this.cooldownMs;
-
-        if (canTransition) {
-            if (this.currentState === "Sem congestionamento" && isCongestedNow) {
-                this.currentState = "Com congestionamento";
-                this.lastTransitionTime = now;
-                this.emit('congestionStarted', { timestamp: new Date() });
-                this.callStartApi();
-            } else if (this.currentState === "Com congestionamento" && isClearNow) {
+        // Sem → Com: IMEDIATO (detectar congestionamento sem atraso)
+        if (this.currentState === "Sem congestionamento" && isCongestedNow) {
+            this.currentState = "Com congestionamento";
+            this.lastTransitionTime = now;
+            this.emit('congestionStarted', { timestamp: new Date() });
+            this.callStartApi();
+        }
+        // Com → Sem: COM COOLDOWN (evita ligar/desligar por passagem rápida de veículo)
+        else if (this.currentState === "Com congestionamento" && isClearNow) {
+            const elapsed = now - this.lastTransitionTime;
+            if (elapsed >= this.cooldownMs) {
                 this.currentState = "Sem congestionamento";
                 this.lastTransitionTime = now;
                 this.emit('congestionEnded', { timestamp: new Date() });
@@ -87,7 +89,7 @@ class CongestionStateMachine extends EventEmitter {
             try {
                 const response = await fetch(url, {
                     headers: {
-                        "Authorization": "Basic YWRtaW46dm9sdHZvbHQ=",
+                        "Authorization": process.env.API_AUTH || "",
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
                     }
                 });
