@@ -32,6 +32,11 @@ class SimpleTracker {
 
         const currentVehicles = currentBoxes.filter(b => VEHICLE_CLASSES.includes(b.label));
 
+        // Inicializa todos como "moving"
+        for (const box of currentBoxes) {
+            box.speed = 'moving';
+        }
+
         for (const currentBox of currentVehicles) {
             let maxIou = 0;
             
@@ -46,7 +51,10 @@ class SimpleTracker {
 
             // If a vehicle has a high IoU with a vehicle from the previous frame, it means it hasn't moved much.
             if (maxIou >= this.iouThreshold) {
+                currentBox.speed = 'stopped';
                 stoppedCount++;
+            } else if (maxIou >= 0.4) { // 0.4 a 0.85 é lento
+                currentBox.speed = 'slow';
             }
         }
 

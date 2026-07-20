@@ -21,7 +21,17 @@ export const renderBoxes = (canvas, boxes) => {
 
   boxes.forEach((box) => {
     const klass = labels[box.label];
-    const color = colors.get(box.label);
+    let color = colors.get(box.label);
+    
+    // Substitui a cor de acordo com a velocidade do veículo
+    if (box.speed === 'stopped') {
+        color = '#FF3838'; // Vermelho
+    } else if (box.speed === 'slow') {
+        color = '#FFB21D'; // Laranja
+    } else if (box.speed === 'moving') {
+        color = '#48F90A'; // Verde
+    }
+
     const score = (box.probability * 100).toFixed(1);
     const [x1, y1, width, height] = box.bounding;
 
