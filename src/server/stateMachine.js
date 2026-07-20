@@ -8,6 +8,8 @@ class CongestionStateMachine extends EventEmitter {
         
         this.currentState = "Sem congestionamento";
         this.history = [];
+        this.lastTransitionTime = 0; // Guardará o timestamp da última mudança
+        this.cooldownMs = 30000; // 30 segundos de "delay"
     }
 
     processFrame(vehicleCount) {
@@ -27,14 +29,21 @@ class CongestionStateMachine extends EventEmitter {
         // Check if all recent frames are below threshold
         const isClearNow = this.history.every(count => count < this.threshold);
 
-        if (this.currentState === "Sem congestionamento" && isCongestedNow) {
-            this.currentState = "Com congestionamento";
-            this.emit('congestionStarted', { timestamp: new Date() });
-            this.callStartApi();
-        } else if (this.currentState === "Com congestionamento" && isClearNow) {
-            this.currentState = "Sem congestionamento";
-            this.emit('congestionEnded', { timestamp: new Date() });
-            this.callEndApi();
+        const now = Date.now();
+        const canTransition = (now - this.lastTransitionTime) >= this.cooldownMs;
+
+        if (canTransition) {
+            if (this.currentState === "Sem congestionamento" && isCongestedNow) {
+                this.currentState = "Com congestionamento";
+                this.lastTransitionTime = now;
+                this.emit('congestionStarted', { timestamp: new Date() });
+                this.callStartApi();
+            } else if (this.currentState === "Com congestionamento" && isClearNow) {
+                this.currentState = "Sem congestionamento";
+                this.lastTransitionTime = now;
+                this.emit('congestionEnded', { timestamp: new Date() });
+                this.callEndApi();
+            }
         }
 
         return this.currentState;
@@ -44,14 +53,30 @@ class CongestionStateMachine extends EventEmitter {
         return this.currentState;
     }
 
-    callStartApi() {
-        // TODO: Implement API call for congestion start
+    async callStartApi() {
         console.log("[API Hook] Congestion STARTED API called.");
+        const url = process.env.API_CONGESTIONAMENTO;
+        if (url) {
+            try {
+                await fetch(url);
+                console.log("Sucesso ao chamar API de Congestionamento.");
+            } catch (err) {
+                console.error("Falha ao chamar API de Congestionamento:", err.message);
+            }
+        }
     }
 
-    callEndApi() {
-        // TODO: Implement API call for congestion end
+    async callEndApi() {
         console.log("[API Hook] Congestion ENDED API called.");
+        const url = process.env.API_LIVRE;
+        if (url) {
+            try {
+                await fetch(url);
+                console.log("Sucesso ao chamar API de Via Livre.");
+            } catch (err) {
+                console.error("Falha ao chamar API de Via Livre:", err.message);
+            }
+        }
     }
 }
 
