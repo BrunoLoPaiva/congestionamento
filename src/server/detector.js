@@ -15,11 +15,23 @@ const VEHICLE_CLASSES = [2, 3, 5, 7]; // car, motorcycle, bus, truck
 async function initModels() {
     console.log("Loading YOLOv8 models...");
     
-    // Tenta usar CUDA (Nvidia) primeiro, depois DirectML (Qualquer GPU no Windows), e por último CPU
-    const options = { executionProviders: ['cuda', 'dml', 'cpu'] };
+    const yoloPath = path.join(__dirname, '../../model/yolov8n.onnx');
+    const nmsPath = path.join(__dirname, '../../model/nms-yolov8.onnx');
+
+    try {
+        // Tenta usar CUDA (Nvidia) primeiro, depois DirectML (Qualquer GPU no Windows), e por último CPU
+        const options = { executionProviders: ['cuda', 'dml', 'cpu'] };
+        session = await ort.InferenceSession.create(yoloPath, options);
+        nmsSession = await ort.InferenceSession.create(nmsPath, options);
+    } catch (err) {
+        console.warn("⚠️ Não foi possível usar a GPU. Erro de biblioteca nativa (CUDA/cuDNN ausente). Fazendo fallback automático para a CPU...");
+        console.warn("Detalhe do erro:", err.message);
+        
+        const fallbackOptions = { executionProviders: ['cpu'] };
+        session = await ort.InferenceSession.create(yoloPath, fallbackOptions);
+        nmsSession = await ort.InferenceSession.create(nmsPath, fallbackOptions);
+    }
     
-    session = await ort.InferenceSession.create(path.join(__dirname, '../../model/yolov8n.onnx'), options);
-    nmsSession = await ort.InferenceSession.create(path.join(__dirname, '../../model/nms-yolov8.onnx'), options);
     console.log("Models loaded successfully.");
 }
 
