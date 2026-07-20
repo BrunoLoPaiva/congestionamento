@@ -11,7 +11,7 @@ const App = () => {
   const imageRef = useRef(null);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8085");
+    const ws = new WebSocket(`ws://${window.location.hostname}:8085`);
 
     ws.onopen = () => {
       setStatus("Aguardando vídeo...");
