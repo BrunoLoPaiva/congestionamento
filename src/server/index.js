@@ -8,6 +8,7 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 const dotenv = require('dotenv');
 const { initModels, detect } = require('./detector');
 const CongestionStateMachine = require('./stateMachine');
+const SimpleTracker = require('./tracker');
 
 dotenv.config();
 
@@ -18,7 +19,8 @@ const wss = new WebSocket.Server({ server });
 const RTSP_URL = process.env.RTSP_URL || '';
 const PORT = process.env.PORT || 8085;
 
-const stateMachine = new CongestionStateMachine(5, 3); // threshold = 5, consecutiveFrames = 3
+const stateMachine = new CongestionStateMachine(5, 3, 3); // threshold = 5, stopped = 3, consecutiveFrames = 3
+const tracker = new SimpleTracker(0.85); // IoU threshold de 0.85 para ser considerado parado
 
 let isProcessing = false;
 let currentMode = 'automatic';
@@ -92,7 +94,8 @@ async function processFrame(frameBuffer) {
 
     try {
         const { boxes, vehicleCount } = await detect(frameBuffer);
-        const currentState = stateMachine.processFrame(vehicleCount);
+        const stoppedVehicleCount = tracker.processFrame(boxes);
+        const currentState = stateMachine.processFrame(vehicleCount, stoppedVehicleCount);
 
         // Sempre atualiza o último estado visto pela IA
         lastAutoStatus = currentState;
@@ -107,6 +110,7 @@ async function processFrame(frameBuffer) {
             image: frameBuffer.toString('base64'),
             boxes,
             vehicleCount,
+            stoppedVehicleCount,
             status: finalStatus,
             cooldownRemaining: currentMode === 'manual' ? 0 : stateMachine.getCooldownRemaining(),
             timestamp: new Date().toISOString()

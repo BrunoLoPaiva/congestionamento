@@ -5,6 +5,7 @@ import "./style/App.css";
 const App = () => {
   const [status, setStatus] = useState("Conectando...");
   const [vehicleCount, setVehicleCount] = useState(0);
+  const [stoppedVehicleCount, setStoppedVehicleCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("--:--:--");
   const [cooldown, setCooldown] = useState(0);
   const [mode, setMode] = useState("automatic");
@@ -83,6 +84,7 @@ const App = () => {
 
         setStatus(data.status);
         setVehicleCount(data.vehicleCount);
+        setStoppedVehicleCount(data.stoppedVehicleCount || 0);
         setCooldown(data.cooldownRemaining || 0);
         setLastUpdate(new Date(data.timestamp).toLocaleTimeString('pt-BR'));
         
@@ -168,8 +170,10 @@ const App = () => {
         </div>
 
         <div className="glass-panel stat-box" style={{ justifyContent: 'center', alignItems: 'center' }}>
-          <span className="stat-label">Veículos na Via (Ao vivo)</span>
+          <span className="stat-label">Veículos na Via</span>
           <span className="stat-value">{vehicleCount}</span>
+          <span className="stat-label" style={{ marginTop: '5px', color: '#f87171' }}>Parados/Lentos</span>
+          <span className="stat-value" style={{ fontSize: '1.4rem', color: '#fca5a5' }}>{stoppedVehicleCount}</span>
           <span className="stat-label" style={{ marginTop: '10px' }}>Última Leitura</span>
           <span className="stat-value" style={{ fontSize: '1.2rem', color: '#a0a0b0' }}>{lastUpdate}</span>
         </div>

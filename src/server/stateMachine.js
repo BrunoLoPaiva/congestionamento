@@ -1,10 +1,11 @@
 const EventEmitter = require('events');
 
 class CongestionStateMachine extends EventEmitter {
-    constructor(threshold = 5, consecutiveFrames = 3) {
+    constructor(threshold = 5, stoppedThreshold = 3, consecutiveFrames = 3) {
         super();
-        this.threshold = threshold; // Number of vehicles to trigger congestion
-        this.consecutiveFrames = consecutiveFrames; // Number of consecutive frames exceeding threshold
+        this.threshold = threshold; // Total number of vehicles
+        this.stoppedThreshold = stoppedThreshold; // Number of stopped vehicles required
+        this.consecutiveFrames = consecutiveFrames;
         
         this.currentState = "Sem congestionamento";
         this.history = [];
@@ -12,9 +13,9 @@ class CongestionStateMachine extends EventEmitter {
         this.cooldownMs = 30000; // 30 segundos de "delay"
     }
 
-    processFrame(vehicleCount) {
+    processFrame(vehicleCount, stoppedVehicleCount = 0) {
         // Keep track of the last N frames
-        this.history.push(vehicleCount);
+        this.history.push({ vehicleCount, stoppedVehicleCount });
         if (this.history.length > this.consecutiveFrames) {
             this.history.shift();
         }
@@ -24,10 +25,15 @@ class CongestionStateMachine extends EventEmitter {
             return this.currentState;
         }
 
-        // Check if all recent frames exceed threshold
-        const isCongestedNow = this.history.every(count => count >= this.threshold);
-        // Check if all recent frames are below threshold
-        const isClearNow = this.history.every(count => count < this.threshold);
+        // Check if all recent frames exceed both thresholds
+        const isCongestedNow = this.history.every(entry => 
+            entry.vehicleCount >= this.threshold && entry.stoppedVehicleCount >= this.stoppedThreshold
+        );
+        // Check if any recent frame is below thresholds (meaning it's clear)
+        // Here we can say it's clear if vehicleCount drops OR stopped vehicles drop
+        const isClearNow = this.history.every(entry => 
+            entry.vehicleCount < this.threshold || entry.stoppedVehicleCount < this.stoppedThreshold
+        );
 
         const now = Date.now();
         // Sem → Com: IMEDIATO (detectar congestionamento sem atraso)
