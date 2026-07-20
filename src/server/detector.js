@@ -86,8 +86,11 @@ async function detect(imageBuffer) {
         new Float32Array([topk, iouThreshold, scoreThreshold])
     );
 
-    const { output0 } = await session.run({ images: tensor });
-    const { selected } = await nmsSession.run({ detection: output0, config: config });
+    const outputName = session.outputNames[0];
+    const results = await session.run({ images: tensor });
+    const outputTensor = results[outputName];
+
+    const { selected } = await nmsSession.run({ detection: outputTensor, config: config });
 
     const boxes = [];
     let vehicleCount = 0;
