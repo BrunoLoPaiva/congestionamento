@@ -53,13 +53,27 @@ class CongestionStateMachine extends EventEmitter {
         return this.currentState;
     }
 
+    getCooldownRemaining() {
+        const elapsed = Date.now() - this.lastTransitionTime;
+        return elapsed < this.cooldownMs ? this.cooldownMs - elapsed : 0;
+    }
+
     async callStartApi() {
         console.log("[API Hook] Congestion STARTED API called.");
         const url = process.env.API_CONGESTIONAMENTO;
         if (url) {
             try {
-                await fetch(url);
-                console.log("Sucesso ao chamar API de Congestionamento.");
+                const response = await fetch(url, {
+                    headers: {
+                        "Authorization": process.env.API_AUTH || "",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
+                    }
+                });
+                if (response.ok) {
+                    console.log("Sucesso ao chamar API de Congestionamento. Status:", response.status);
+                } else {
+                    console.error("A API retornou erro:", response.status, response.statusText);
+                }
             } catch (err) {
                 console.error("Falha ao chamar API de Congestionamento:", err.message);
             }
@@ -71,8 +85,17 @@ class CongestionStateMachine extends EventEmitter {
         const url = process.env.API_LIVRE;
         if (url) {
             try {
-                await fetch(url);
-                console.log("Sucesso ao chamar API de Via Livre.");
+                const response = await fetch(url, {
+                    headers: {
+                        "Authorization": "Basic YWRtaW46dm9sdHZvbHQ=",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
+                    }
+                });
+                if (response.ok) {
+                    console.log("Sucesso ao chamar API de Via Livre. Status:", response.status);
+                } else {
+                    console.error("A API retornou erro:", response.status, response.statusText);
+                }
             } catch (err) {
                 console.error("Falha ao chamar API de Via Livre:", err.message);
             }

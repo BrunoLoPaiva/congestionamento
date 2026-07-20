@@ -5,15 +5,16 @@ import "./style/App.css";
 const App = () => {
   const [status, setStatus] = useState("Conectando...");
   const [vehicleCount, setVehicleCount] = useState(0);
-  const [lastUpdate, setLastUpdate] = useState("");
+  const [lastUpdate, setLastUpdate] = useState("--:--:--");
+  const [cooldown, setCooldown] = useState(0);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080");
+    const ws = new WebSocket("ws://localhost:8085");
 
     ws.onopen = () => {
-      setStatus("Conectado. Aguardando vídeo...");
+      setStatus("Aguardando vídeo...");
     };
 
     ws.onmessage = (event) => {
@@ -37,7 +38,8 @@ const App = () => {
 
         setStatus(data.status);
         setVehicleCount(data.vehicleCount);
-        setLastUpdate(new Date(data.timestamp).toLocaleTimeString());
+        setCooldown(data.cooldownRemaining || 0);
+        setLastUpdate(new Date(data.timestamp).toLocaleTimeString('pt-BR'));
         
       } catch (e) {
         console.error("Error parsing message", e);
@@ -54,46 +56,47 @@ const App = () => {
   }, []);
 
   const isCongested = status === "Com congestionamento";
+  const statusClass = isCongested ? "congested" : (status === "Sem congestionamento" ? "clear" : "connecting");
+  
+  // Calcula a porcentagem do cooldown (30.000ms = 30s)
+  const progressPercent = Math.min(100, Math.max(0, (cooldown / 30000) * 100));
 
   return (
-    <div className="App" style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-      <div className="header" style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <h1>Monitoramento de Tráfego</h1>
-        <p>Análise de Vídeo RTSP em Tempo Real (Interface de Depuração)</p>
-      </div>
+    <div className="dashboard-container">
+      <header className="header">
+        <h1>Detector de congestionamento</h1>
+        <p>Monitoramento de Tráfego &amp; Detecção de Congestionamento</p>
+      </header>
       
-      <div 
-        className="status-panel" 
-        style={{ 
-            backgroundColor: isCongested ? '#ff4d4f' : (status === "Sem congestionamento" ? '#52c41a' : '#faad14'), 
-            padding: '20px', 
-            color: 'white', 
-            fontWeight: 'bold', 
-            fontSize: '24px', 
-            textAlign: 'center', 
-            marginBottom: '20px', 
-            borderRadius: '8px',
-            transition: 'background-color 0.5s ease'
-        }}
-      >
-        {status}
+      <div className="stats-row">
+        <div className="glass-panel status-card">
+          <div className={`status-indicator ${statusClass}`}>
+            <div className="pulse-dot"></div>
+            {status}
+          </div>
+          
+          <div className="cooldown-wrapper" style={{ opacity: cooldown > 0 ? 1 : 0.3 }}>
+            <div className="cooldown-text">
+              <span>Proteção contra Spam de status</span>
+              <span>{(cooldown / 1000).toFixed(1)}s restantes</span>
+            </div>
+            <div className="progress-bg">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }}></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-panel stat-box" style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <span className="stat-label">Veículos na Via (Ao vivo)</span>
+          <span className="stat-value">{vehicleCount}</span>
+          <span className="stat-label" style={{ marginTop: '10px' }}>Última Leitura</span>
+          <span className="stat-value" style={{ fontSize: '1.2rem', color: '#a0a0b0' }}>{lastUpdate}</span>
+        </div>
       </div>
 
-      <div className="debug-info" style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', backgroundColor: '#f0f2f5', borderRadius: '8px', marginBottom: '20px', fontSize: '18px' }}>
-        <div><strong>Veículos Detectados (Atual):</strong> {vehicleCount}</div>
-        <div><strong>Última Atualização:</strong> {lastUpdate}</div>
-      </div>
-
-      <div className="content" style={{ position: 'relative', display: 'flex', justifyContent: 'center', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden' }}>
-        <img
-          ref={imageRef}
-          alt="Video Stream"
-          style={{ display: "block", maxWidth: '100%', height: 'auto', maxHeight: '70vh' }}
-        />
-        <canvas
-          ref={canvasRef}
-          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-        />
+      <div className="video-container">
+        <img ref={imageRef} alt="Stream RTSP" />
+        <canvas ref={canvasRef} />
       </div>
     </div>
   );

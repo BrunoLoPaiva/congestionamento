@@ -36,6 +36,7 @@ async function processFrame(frameBuffer) {
             boxes,
             vehicleCount,
             status: currentState,
+            cooldownRemaining: stateMachine.getCooldownRemaining(),
             timestamp: new Date().toISOString()
         });
 
