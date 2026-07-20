@@ -16,11 +16,72 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const RTSP_URL = process.env.RTSP_URL || '';
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8085;
 
 const stateMachine = new CongestionStateMachine(5, 3); // threshold = 5, consecutiveFrames = 3
 
 let isProcessing = false;
+let currentMode = 'automatic';
+let currentManualStatus = false;
+
+app.use(express.json());
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+const API_HEADERS = {
+    "Authorization": process.env.API_AUTH || "",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
+};
+
+async function callManualApi(active) {
+    const url = active ? process.env.API_CONGESTIONAMENTO : process.env.API_LIVRE;
+    const label = active ? "CONGESTIONAMENTO" : "LIVRE";
+    if (!url) {
+        console.warn(`[Manual] URL da API ${label} não configurada no .env`);
+        return;
+    }
+    try {
+        const response = await fetch(url, { headers: API_HEADERS });
+        if (response.ok) {
+            console.log(`[Manual] API ${label} chamada com sucesso. Status:`, response.status);
+        } else {
+            console.error(`[Manual] A API ${label} retornou erro:`, response.status, response.statusText);
+        }
+    } catch (err) {
+        console.error(`[Manual] Falha ao chamar API ${label}:`, err.message);
+    }
+}
+
+app.post('/api/config', async (req, res) => {
+    const { mode, manualStatus } = req.body;
+
+    const prevMode = currentMode;
+    const prevManualStatus = currentManualStatus;
+
+    if (mode !== undefined) currentMode = mode;
+    if (manualStatus !== undefined) currentManualStatus = manualStatus;
+
+    console.log(`[API] Config updated: mode=${currentMode}, manualStatus=${currentManualStatus}`);
+
+    // Chama a API externa se estiver em modo manual e o status tiver mudado
+    if (currentMode === 'manual') {
+        const statusChanged = manualStatus !== undefined && manualStatus !== prevManualStatus;
+        const switchedToManual = mode === 'manual' && prevMode !== 'manual';
+
+        if (statusChanged || switchedToManual) {
+            await callManualApi(currentManualStatus);
+        }
+    }
+
+    res.json({ success: true, mode: currentMode, manualStatus: currentManualStatus });
+});
+
 
 async function processFrame(frameBuffer) {
     if (isProcessing) return; // Pula o quadro se a IA ainda estiver processando o anterior (Drop frame)
@@ -30,13 +91,18 @@ async function processFrame(frameBuffer) {
         const { boxes, vehicleCount } = await detect(frameBuffer);
         const currentState = stateMachine.processFrame(vehicleCount);
 
+        let finalStatus = currentState;
+        if (currentMode === 'manual') {
+            finalStatus = currentManualStatus ? "Com congestionamento" : "Sem congestionamento";
+        }
+
         // Envia o exato frame processado junto com suas exatas caixas! (Sincronia perfeita)
         const payload = JSON.stringify({
             image: frameBuffer.toString('base64'),
             boxes,
             vehicleCount,
-            status: currentState,
-            cooldownRemaining: stateMachine.getCooldownRemaining(),
+            status: finalStatus,
+            cooldownRemaining: currentMode === 'manual' ? 0 : stateMachine.getCooldownRemaining(),
             timestamp: new Date().toISOString()
         });
 
