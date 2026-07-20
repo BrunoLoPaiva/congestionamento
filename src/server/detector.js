@@ -8,7 +8,7 @@ let nmsSession = null;
 const modelInputShape = [1, 3, 640, 640];
 const topk = 100;
 const iouThreshold = 0.45;
-const scoreThreshold = 0.45;
+const scoreThreshold = 0.60;
 
 const VEHICLE_CLASSES = [2, 3, 5, 7]; // car, motorcycle, bus, truck
 
