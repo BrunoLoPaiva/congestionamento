@@ -8,14 +8,14 @@ let nmsSession = null;
 const modelInputShape = [1, 3, 640, 640];
 const topk = 100;
 const iouThreshold = 0.45;
-const scoreThreshold = 0.25;
+const scoreThreshold = 0.45;
 
 const VEHICLE_CLASSES = [2, 3, 5, 7]; // car, motorcycle, bus, truck
 
 async function initModels() {
     console.log("Loading YOLOv8 models...");
     
-    const yoloPath = path.join(__dirname, '../../model/yolov8n.onnx');
+    const yoloPath = path.join(__dirname, '../../model/yolov8m.onnx');
     const nmsPath = path.join(__dirname, '../../model/nms-yolov8.onnx');
 
     try {
