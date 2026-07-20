@@ -23,6 +23,7 @@ const stateMachine = new CongestionStateMachine(5, 3); // threshold = 5, consecu
 let isProcessing = false;
 let currentMode = 'automatic';
 let currentManualStatus = false;
+let lastAutoStatus = 'Sem congestionamento'; // último estado visto pela IA
 
 app.use(express.json());
 app.use((req, res, next) => {
@@ -69,17 +70,19 @@ app.post('/api/config', async (req, res) => {
 
     console.log(`[API] Config updated: mode=${currentMode}, manualStatus=${currentManualStatus}`);
 
-    // Chama a API externa se estiver em modo manual e o status tiver mudado
-    if (currentMode === 'manual') {
-        const statusChanged = manualStatus !== undefined && manualStatus !== prevManualStatus;
-        const switchedToManual = mode === 'manual' && prevMode !== 'manual';
-
-        if (statusChanged || switchedToManual) {
-            await callManualApi(currentManualStatus);
-        }
+    if (mode === 'automatic' && prevMode === 'manual') {
+        // Voltou para automático: dispara API imediatamente com o último estado da IA
+        const isCurrentlyCongested = lastAutoStatus === 'Com congestionamento';
+        currentManualStatus = isCurrentlyCongested;
+        console.log(`[API] Voltando para automático. Estado atual da IA: ${lastAutoStatus}`);
+        await callManualApi(isCurrentlyCongested);
+    } else if (currentMode === 'manual' && manualStatus !== undefined && manualStatus !== prevManualStatus) {
+        // Toggle manual acionado: chama API com o novo valor
+        await callManualApi(currentManualStatus);
     }
+    // Nota: Automático → Manual NÃO chama a API externa
 
-    res.json({ success: true, mode: currentMode, manualStatus: currentManualStatus });
+    res.json({ success: true, mode: currentMode, manualStatus: currentManualStatus, lastAutoStatus });
 });
 
 
@@ -90,6 +93,9 @@ async function processFrame(frameBuffer) {
     try {
         const { boxes, vehicleCount } = await detect(frameBuffer);
         const currentState = stateMachine.processFrame(vehicleCount);
+
+        // Sempre atualiza o último estado visto pela IA
+        lastAutoStatus = currentState;
 
         let finalStatus = currentState;
         if (currentMode === 'manual') {

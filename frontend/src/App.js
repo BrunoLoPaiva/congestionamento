@@ -30,8 +30,24 @@ const App = () => {
   };
 
   const handleModeChange = (newMode) => {
-    setMode(newMode);
-    updateConfig(newMode, undefined);
+    if (newMode === 'manual') {
+      // Espelha o estado atual da IA no toggle, mas NÃO chama a API externa
+      const currentIsCongested = status === "Com congestionamento";
+      setManualStatus(currentIsCongested);
+      setMode(newMode);
+      // Avisa o backend só da mudança de modo (sem disparar API)
+      try {
+        fetch(`http://${window.location.hostname}:8085/api/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: newMode, manualStatus: currentIsCongested }),
+        });
+      } catch (e) { console.error("Erro ao chamar API:", e); }
+    } else {
+      // Volta para automático: backend dispara a API com o estado atual da IA
+      setMode(newMode);
+      updateConfig(newMode, undefined);
+    }
   };
 
   const handleManualStatusChange = (newStatus) => {

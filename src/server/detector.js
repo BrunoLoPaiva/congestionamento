@@ -92,6 +92,8 @@ async function detect(imageBuffer) {
 
     const { selected } = await nmsSession.run({ detection: outputTensor, config: config });
 
+    const EXCLUDED_CLASSES = [6]; // train - muitos falsos positivos
+
     const boxes = [];
     let vehicleCount = 0;
 
@@ -101,6 +103,9 @@ async function detect(imageBuffer) {
         const scores = data.slice(4);
         const score = Math.max(...scores);
         const label = scores.indexOf(score);
+
+        // Ignora classes problemáticas (ex: train)
+        if (EXCLUDED_CLASSES.includes(label)) continue;
 
         if (VEHICLE_CLASSES.includes(label)) {
             vehicleCount++;
